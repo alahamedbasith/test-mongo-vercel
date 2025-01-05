@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import motor.motor_asyncio  # MongoDB
@@ -18,6 +18,8 @@ collection = None
 @app.on_event("startup")
 async def startup_db_client():
     global client, db, collection
+    if MONGODB_URI is None:
+        raise HTTPException(status_code=500, detail="MONGODB_URI environment variable is not set.")
     client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
     db = client.portfolio
     collection = db.content
@@ -27,10 +29,12 @@ async def startup_db_client():
         print("Pinged your deployment. You successfully connected to MongoDB!")
     except Exception as e:
         print(f"Could not connect to MongoDB: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not connect to MongoDB: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client:
+        client.close()
 
 class Content(BaseModel):
     html_content: str
