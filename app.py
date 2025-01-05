@@ -11,30 +11,23 @@ app = FastAPI()
 
 # MongoDB setup
 MONGODB_URI = os.getenv("MONGODB_URI")
-client = None
-db = None
-collection = None
 
+if not MONGODB_URI:
+    raise HTTPException(status_code=500, detail="MONGODB_URI environment variable is not set.")
+
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
+db = client.portfolio
+collection = db.content
+
+# MongoDB connection test
 @app.on_event("startup")
 async def startup_db_client():
-    global client, db, collection
-    if MONGODB_URI is None:
-        raise HTTPException(status_code=500, detail="MONGODB_URI environment variable is not set.")
-    client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
-    db = client.portfolio
-    collection = db.content
-    # MongoDB connection test
     try:
         client.admin.command('ping')
         print("Pinged your deployment. You successfully connected to MongoDB!")
     except Exception as e:
         print(f"Could not connect to MongoDB: {e}")
         raise HTTPException(status_code=500, detail=f"Could not connect to MongoDB: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    if client:
-        client.close()
 
 class Content(BaseModel):
     html_content: str
