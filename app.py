@@ -41,6 +41,15 @@ app.add_middleware(
 class Content(BaseModel):
     html_content: str
 
+@app.get("/")
+async def root():
+    try:
+        # Send a ping to confirm a successful connection
+        client.admin.command('ping')
+        return {"message": "Successfully connected to MongoDB!"}
+    except Exception as e:
+        return {"message": f"Could not connect to MongoDB: {e}"}
+
 @app.post("/update_content/")
 async def update_content(html_content: str = Form(...)):
     # Save content to MongoDB
