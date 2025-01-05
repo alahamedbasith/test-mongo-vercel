@@ -4,12 +4,17 @@ from pydantic import BaseModel
 import motor.motor_asyncio  # Use motor for async MongoDB operations
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
+# Load environment variables from .env file
 load_dotenv()
 
-# Load MongoDB connection string from environment variable
-MONGODB_URI = os.getenv("MONGODB_URI")
+# Access environment variables directly using dotenv_values() without os
+env = dotenv_values()  # This loads the .env file into a dictionary
+
+
+# MongoDB URI directly from the dotenv dictionary
+MONGODB_URI = env.get("MONGODB_URI")
 
 # MongoDB setup
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
