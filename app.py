@@ -3,30 +3,37 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import motor.motor_asyncio  # MongoDB
 import os
-import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# MongoDB setup
-MONGODB_URI = os.getenv("MONGODB_URI")
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
-db = client.portfolio
-collection = db.content
-
 app = FastAPI()
 
-# MongoDB connection test
-try:
-    client.admin.command('ping')
-    print("Pinged your deployment. You successfully connected to MongoDB!")
-except Exception as e:
-    print(f"Could not connect to MongoDB: {e}")
+# MongoDB setup
+MONGODB_URI = os.getenv("MONGODB_URI")
+client = None
+db = None
+collection = None
 
+@app.on_event("startup")
+async def startup_db_client():
+    global client, db, collection
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
+    db = client.portfolio
+    collection = db.content
+    # MongoDB connection test
+    try:
+        client.admin.command('ping')
+        print("Pinged your deployment. You successfully connected to MongoDB!")
+    except Exception as e:
+        print(f"Could not connect to MongoDB: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
 
 class Content(BaseModel):
     html_content: str
-
 
 @app.get("/")
 async def root():
@@ -35,7 +42,6 @@ async def root():
         return {"message": "Successfully connected to MongoDB!"}
     except Exception as e:
         return {"message": f"Could not connect to MongoDB: {e}"}
-
 
 # Background task to save content to DB
 async def save_content_to_db(html_content):
@@ -49,7 +55,6 @@ async def save_content_to_db(html_content):
         print(f"Error saving content to DB: {e}")
         raise HTTPException(status_code=500, detail=f"Error saving content: {e}")
 
-
 @app.post("/update_content/")
 async def update_content(html_content: str, background_tasks: BackgroundTasks):
     try:
@@ -59,7 +64,6 @@ async def update_content(html_content: str, background_tasks: BackgroundTasks):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating content: {e}")
 
-
 @app.get("/portfolio", response_class=HTMLResponse)
 async def portfolio():
     document = await collection.find_one({"_id": "content"})
@@ -67,4 +71,3 @@ async def portfolio():
         html_content = document["html_content"]
         return HTMLResponse(content=html_content)
     raise HTTPException(status_code=404, detail="Content not found")
-
