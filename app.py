@@ -3,9 +3,13 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import motor.motor_asyncio  # Use motor for async MongoDB operations
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import os
 from dotenv import load_dotenv
+import asyncio
+import os
+
+# Fix event loop policy for Windows and certain deployment setups
+if os.name == "nt":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 load_dotenv()
 
@@ -47,13 +51,12 @@ async def root():
     except Exception as e:
         return {"message": f"Could not connect to MongoDB: {e}"}
 
-from fastapi import BackgroundTasks
-
 @app.post("/update_content/")
-async def update_content(html_content: str, background_tasks: BackgroundTasks):
+async def update_content(html_content: str):
     try:
-        background_tasks.add_task(save_content_to_db, html_content)
-        return {"message": "Content update is in progress."}
+        # Save content to the database directly without BackgroundTasks
+        await save_content_to_db(html_content)
+        return {"message": "Content has been successfully updated."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating content: {e}")
 
@@ -66,6 +69,7 @@ async def save_content_to_db(html_content):
         )
     except Exception as e:
         print(f"Error saving content to DB: {e}")
+        raise HTTPException(status_code=500, detail=f"Error saving content: {e}")
 
 @app.get("/portfolio", response_class=HTMLResponse)
 async def portfolio():
