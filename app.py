@@ -47,18 +47,25 @@ async def root():
     except Exception as e:
         return {"message": f"Could not connect to MongoDB: {e}"}
 
+from fastapi import BackgroundTasks
+
 @app.post("/update_content/")
-async def update_content(html_content: str = Form(...)):
-    # Save content to MongoDB
+async def update_content(html_content: str, background_tasks: BackgroundTasks):
+    try:
+        background_tasks.add_task(save_content_to_db, html_content)
+        return {"message": "Content update is in progress."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating content: {e}")
+
+async def save_content_to_db(html_content):
     try:
         await collection.update_one(
             {"_id": "content"},
             {"$set": {"html_content": html_content}},
             upsert=True
         )
-        return {"message": "Content updated successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating content: {e}")
+        print(f"Error saving content to DB: {e}")
 
 @app.get("/portfolio", response_class=HTMLResponse)
 async def portfolio():
